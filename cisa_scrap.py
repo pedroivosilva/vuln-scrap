@@ -110,7 +110,7 @@ def cisa_csv(filename='CISA - Tabela de Vulnerabilidades.csv'):
             for paragraph in p_texts:
                 if 'A CVSS v3 base score of ' in paragraph.text:
                     p_cve_cvss = str(paragraph.text)
-                    p_cve_cvss = re.findall('A CVSS v3 base score of \d{1,2}.{1}\d{1}', p_cve_cvss)
+                    p_cve_cvss = re.findall(r'A CVSS v3 base score of \d{1,2}.{1}\d{1}', p_cve_cvss)
                     cve_cvss = p_cve_cvss[0].split(' ')[-1]
                     cve_cvss_list.append(cve_cvss)
 
