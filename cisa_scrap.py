@@ -3,15 +3,14 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 import datetime as dt
+import re
 import pandas as pd
 import json
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-driver2 = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-# driver3 = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 
 cisa = "https://www.cisa.gov"
-driver.get(cisa + "/uscert/ics/advisories")
+driver.get(cisa + "/uscert/ics/advisories?items_per_page=50")
 cisa_advisories = driver.page_source
 soup = BeautifulSoup(cisa_advisories, 'html.parser')
 
@@ -31,8 +30,8 @@ for i in soup.find_all('span', attrs={'class': 'views-field views-field-title'})
 # CVSS must be >= 7.0
 
 for vuln_page in all_cisa_vulns:
-    driver2.get(vuln_page[1])
-    vuln_contents = driver2.page_source
+    driver.get(vuln_page[1])
+    vuln_contents = driver.page_source
     vuln_soup = BeautifulSoup(vuln_contents, 'html.parser')
 
     # Original release date slicing and converting into date object for comparison.
@@ -52,18 +51,17 @@ for vuln_page in all_cisa_vulns:
     cvss = vuln_soup.find_all('strong', attrs={'style': 'color: red;'})[0]
     cvss = float(cvss.text.split()[-1])
 
-    d = {}
-    cve = []
-    cves_list = []
+    vuln_d = {}
     if (date_delta.days <= 7) and (cvss >= 7):
         # Set already known variables.
-        d['title'] = vuln_page[0]
-        d['cvss'] = cvss
-        d['release_date'] = release_date
+        vuln_d['title'] = vuln_page[0]
+        vuln_d['cvss'] = cvss
+        vuln_d['release_date'] = release_date
 
         # Deploy the main html variables to search for information.
         h3_vuln_soup = vuln_soup.find_all('h3')
         h4_vuln_soup = vuln_soup.find_all('h4')
+        p_texts = vuln_soup.find_all('p')
         a_vuln_soup = vuln_soup.find_all('a', href=True)
 
         # Get text index (e.g. On the heading "3.2. VULNERABILITY OVERVIEW", 3.2 will be our index)
@@ -71,102 +69,124 @@ for vuln_page in all_cisa_vulns:
         vulnerability_heading = 'ERROR'
 
         # Start to scrap.
-        for h3tag in h3_vuln_soup:
-            if h3tag.string.endswith('VULNERABILITY OVERVIEW'):
-                # Strip to cut off all characters after our index.
-                vulnerability_heading = h3tag.string.rstrip(' VULNERABILITY OVERVIEW')
+        cve_list = []
+        cve_name_link = ()
 
         # Get CVE count for this vulnerability and append it to d as cve_count.
-        cve_count = 0
+
         for all_links in a_vuln_soup:
 
             if str(all_links.text).startswith('CVE-'):
-                cve_count += 1
-                cves_list.append(all_links.text)
+                cve_link_text = all_links.text
+                cve_link = all_links.get_attribute_list('href')[0]
+                cve_name_link = cve_name_link + ([cve_link_text, cve_link],)
 
-            d['cve_count'] = cve_count
+        vuln_d['cve_count'] = len(cve_name_link)
 
-        # Get all cve ids, links and details and add it into another temporary dictionary d_cve.
-        # Then, when the loop over, add it into d dictionary under 'cve' key as a list.
-        d_cve = {}
-        for cve_item in cves_list:
-            cve_id = str(cve_item)
-            d_cve['cve_id'] = cve_id
+        while len(cve_list) < len(cve_name_link):
 
-            for h4tag in h4_vuln_soup:
-                next_parents_links = h4tag.find_next_sibling('p').find_next_sibling('p').find_all('a', href=True)
+            for h3tag in h3_vuln_soup:
+                if h3tag.string.endswith('VULNERABILITY OVERVIEW'):
+                    # Strip to cut off all characters after our index.
+                    vulnerability_heading = h3tag.string.rstrip(' VULNERABILITY OVERVIEW')
 
-                # Get link of each cve_id.
-                for link in next_parents_links:
-                    if link.text == cve_id:
-                        d_cve['link'] = link['href']
+            # Get all cve ids, links and details and add it into another temporary dictionary d_cve.
+            # Then, when the loop over, add it into d dictionary under 'cve' key as a list.
+            d_cve = {}
 
-                # If link is not found, try to find it on another paragraph.
-                if 'link' not in d_cve:
-                    for link in next_parents_links:
-                        second_paragraph = link.find_next_sibling('p').find_next_sibling('p')
-                        second_paragraph_links = second_paragraph.find_all('a', href=True)
-                        for each_link in second_paragraph:
-                            link = each_link['href'].split('=')[-1]
-                            if link == cve_id:
-                                d_cve['link'] = link['href']
-                # If link is not found again, put 'ERROR!' on link field.
-                if 'link' not in d_cve:
-                    d_cve['link'] = 'ERROR'
+            for cve_item in cve_name_link:
+                d_cve['cve_id'] = cve_item[0]
+                d_cve['link'] = cve_item[1]
+                cve_list.append(d_cve.copy())
 
-            # cve_details_list = []
-            # for h4tag in h4_vuln_soup:
-                if h4tag.text.startswith(vulnerability_heading):
-                    detail = str(h4tag.find_next_sibling('p').string)
-                    print(f'{detail}\n\n')
-                    d_cve['detail'] = detail
-####### A LISTA cve ESTÁ DUPLICANDO. NECESSÁRIO AJUSTAR OS DOIS FOR DESTA SEÇÃO COM O cve.append(d_cve.copy()) ######
-            cve.append(d_cve.copy())
+        cve_cvss_list = []
+        for paragraph in p_texts:
+            if 'A CVSS v3 base score of ' in paragraph.text:
+                p_cve_cvss = str(paragraph.text)
+                p_cve_cvss = re.findall('A CVSS v3 base score of \d{1,2}.{1}\d{1}', p_cve_cvss)
+                cve_cvss = p_cve_cvss[0].split(' ')[-1]
+                cve_cvss_list.append(cve_cvss)
 
-        d['cve'] = cve
+        for index, c in enumerate(cve_cvss_list):
+            cve_list[index]['cvss'] = float(c)
+
+        detail_list = []
+        for h4tag in h4_vuln_soup:
+
+            if h4tag.text.startswith(vulnerability_heading):
+                detail = str(h4tag.find_next_sibling('p').string)
+                detail_list.append(detail)
+
+        for index, d in enumerate(detail_list):
+            cve_list[index]['details'] = str(d)
+
+        vuln_d['cve'] = cve_list
 
         # Get vendor or vendors for each vulnerability.
         child_vuln_soup = vuln_soup.find_all('li')
         for child_item in child_vuln_soup:
             if str(child_item.text).startswith('Vendor: '):
                 vendor = str(child_item.text).lstrip('Vendor: ')
-                d['vendor'] = vendor
+                vuln_d['vendor'] = vendor
             elif str(child_item.text).startswith('Vendors: '):
                 vendor = str(child_item.text).lstrip('Vendors: ')
-                d['vendors'] = vendor
+                vuln_d['vendors'] = vendor
 
             if str(child_item.text).startswith('Equipment: '):
                 product = str(child_item.text).lstrip('Equipment: ')
-                d['product'] = product
+                vuln_d['product'] = product
 
         # Check if any key is blank for troubleshooting purposes.
-        if 'cve'not in d:
-            d['cve'] = 'No CVE found!'
+        if 'cve' not in vuln_d:
+            vuln_d['cve'] = 'No CVE found!'
 
-        if ('vendor' not in d) and ('vendors' not in d):
-            d['vendor'] = 'No vendor specified!'
+        if ('vendor' not in vuln_d) and ('vendors' not in vuln_d):
+            vuln_d['vendor'] = 'No vendor specified!'
 
-        if 'product' not in d:
-            d['product'] = 'No product specified!'
+        if 'product' not in vuln_d:
+            vuln_d['product'] = 'No product specified!'
 
         # Add all vulnerability's information into cisa_vulns list.
-        cisa_vulns.append(d.copy())
+        cisa_vulns.append(vuln_d.copy())
         json_cisa_vulns = json.dumps(cisa_vulns)
 
-###############
 
-#
-# # CVSS is the first bold red colored word in the page. That's why it's in index 0 below.
-#
-# # cvss = vuln_soup.find_all('strong', attrs={'style': 'color: red;'})[0]
-# # cvss = float(cvss.text.split()[-1])
-#
-# # Original release date slicing and converting into date object for comparison.
-# release_date = vuln_soup.find_all('div', attrs={'class': 'submitted meta-text'})[0]
-# release_date = release_date.text.strip()
-# release_date = release_date.split(': ')[1]
-# release_date = dt.datetime.strptime(release_date, '%B %d, %Y').date()
-#
-# ###############
-# df = pd.DataFrame({'Vulnerabilities': titles, 'Link': links})
-# df.to_csv('test.csv', index=False, encoding='utf-8')
+final_vendor = ()
+final_product = ()
+final_cve_id = ()
+final_cve_cvss = ()
+final_cve_detail = ()
+final_cve_link = ()
+final_vuln = ()
+
+for i in cisa_vulns:
+    count = 0
+
+    while count != int(i['cve_count']):
+
+        final_vendor = final_vendor + ([i['vendor']],)
+        final_product = final_product + ([i['product']],)
+        final_cve_id = final_cve_id + ([i['cve'][count]['cve_id']],)
+        final_cve_cvss = final_cve_cvss + ([i['cve'][count]['cvss']],)
+        final_cve_detail = final_cve_detail + ([i['cve'][count]['details']],)
+        final_cve_link = final_cve_link + ([i['cve'][count]['link']],)
+        count += 1
+
+# Data generators for each column of table
+gen_vendor = [v[0] for v in final_vendor]
+gen_product = [p[0] for p in final_product]
+gen_cve_id = [ci[0] for ci in final_cve_id]
+gen_cve_cvss = [cc[0] for cc in final_cve_cvss]
+gen_cve_detail = [cd[0] for cd in final_cve_detail]
+gen_cve_link = [cl[0] for cl in final_cve_link]
+
+        # f_vendor = i['vendor']
+        # f_product = i['product']
+        # cve_id = i['cve'][count]['cve_id']
+        # cve_cvss = i['cve'][count]['cvss']
+        # cve_detail = i['cve'][count]['details']
+        # cve_link = i['cve'][count]['link']
+        # final_vuln = final_vuln + ([f_vendor, f_product, cve_id, cve_cvss, cve_detail, cve_link],)
+
+df = pd.DataFrame({'Fabricante': gen_vendor, 'Produto Afetado': gen_product, 'CVE ID': gen_cve_id, 'CVSS Score': gen_cve_cvss, 'Detalhes da Vulnerabilidade': gen_cve_detail, 'Detalhes Adicionais': gen_cve_link,})
+df.to_csv('test1.csv', index=False, encoding='utf-8')
