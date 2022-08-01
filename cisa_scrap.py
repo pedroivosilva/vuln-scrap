@@ -8,15 +8,11 @@ import re
 import pandas as pd
 
 
-def cisa_csv(filename='CISA - Tabela de Vulnerabilidades.csv'):
-
-    now = dt.date.today()
-    now_str = now.strftime("%d-%m-%Y")
-    filename = filename.split('.csv')[0]
-    filename = filename + '-' + now_str + '.csv'
+def cisa_df():
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 
+    now = dt.date.today()
     cisa = "https://www.cisa.gov"
     driver.get(cisa + "/uscert/ics/advisories?items_per_page=50")
     cisa_advisories = driver.page_source
@@ -195,7 +191,18 @@ def cisa_csv(filename='CISA - Tabela de Vulnerabilidades.csv'):
     df = pd.DataFrame({'Fabricante': gen_vendor, 'Produto Afetado': gen_product,
                        'CVE ID': gen_cve_id, 'CVSS Score': gen_cve_cvss,
                        'Detalhes da Vulnerabilidade': gen_cve_detail, 'Detalhes Adicionais': gen_cve_link, })
-    df.to_csv(filename, index=False, encoding='utf-8')
+
+    return df
+
+
+def cisa_csv(dataf, filename='CISA - Tabela de Vulnerabilidades.csv'):
+
+    now = dt.date.today()
+    now_str = now.strftime("%d-%m-%Y")
+    filename = filename.split('.csv')[0]
+    filename = filename + '-' + now_str + '.csv'
+
+    dataf.to_csv(filename, index=False, encoding='utf-8')
 
     if filename in os.listdir():
         return filename
