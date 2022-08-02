@@ -12,6 +12,7 @@ At this point it supports 3 websites:
 
 ### Requirements
 * Python 3.9+
+* Google Chrome 103.0.5060.134+
 * Modules:
   * beautifulsoup4==4.11.1
   * pandas==1.4.3
