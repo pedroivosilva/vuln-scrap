@@ -15,6 +15,7 @@ def scrap_man():
     print("-all\t\t\tTry to scrap vulnerabilities from all available sources to a single csv file.\n\n")
     print("Created by Pedro Ivo de Oliveira Silva:\npedro.silva@global.ntt, pedroivo.osilva@proton.me")
 
+
 def scrap_caller(site):
 
     # If -cisa parameter is given, load cisa_scrap.py module.
