@@ -61,6 +61,7 @@ if __name__ == '__main__':
         if sys.argv[1] == '-cisa' or sys.argv[1] == '-zdi' or sys.argv[1] == '-all':
             s = str(sys.argv[1])
             final_result = scrap_caller(s)
+            print(final_result)
         elif sys.argv[1] == '-h' or sys.argv[1] == '--help':
             scrap_man()
         else:
