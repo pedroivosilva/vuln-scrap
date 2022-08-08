@@ -18,6 +18,7 @@ At this point it supports 3 websites:
 * Modules:
   * beautifulsoup4==4.11.1
   * pandas==1.4.3
+  * requests==2.26.0
   * selenium==4.3.0
   * webdriver_manager==3.8.2
 
