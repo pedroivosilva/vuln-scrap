@@ -190,8 +190,19 @@ def cisa_df():
             final_vendor = final_vendor + ([i['vendor']],)
             final_product = final_product + ([i['product']],)
             final_cve_id = final_cve_id + ([i['cve'][count]['cve_id']],)
-            final_cve_cvss = final_cve_cvss + ([i['cve'][count]['cvss']],)
-            final_cve_detail = final_cve_detail + ([i['cve'][count]['details']],)
+
+            # corrigir futuramente
+            try:
+                final_cve_cvss = final_cve_cvss + ([i['cve'][count]['cvss']],)
+            except KeyError:
+                final_cve_cvss = final_cve_cvss + ('X',)
+
+            # corrigir futuramente
+            try:
+                final_cve_detail = final_cve_detail + ([i['cve'][count]['details']],)
+            except KeyError:
+                final_cve_detail = final_cve_detail + ('X',)
+
             final_cve_link = final_cve_link + ([i['cve'][count]['link']],)
             count += 1
 
