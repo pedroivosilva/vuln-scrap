@@ -62,8 +62,12 @@ def cisa_df():
 
         # If delta is within the period, check the CVSS score.
         # CVSS is the first bold red colored word in the page. That's why it's in index 0 below
-        cvss = vuln_soup.find_all('strong', attrs={'style': 'color: red;'})[0]
-        cvss = float(cvss.text.split()[-1])
+        try:
+            cvss = vuln_soup.find_all('strong', attrs={'style': 'color: red;'})[0]
+        except IndexError:
+            cvss = vuln_soup.find_all('strong', attrs={'style': 'color:red;'})[0]
+        finally:
+            cvss = float(cvss.text.split()[-1])
 
         print(f'Release date: {release_date}')
         print(f'CVSS v3: {cvss}')
