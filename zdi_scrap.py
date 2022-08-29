@@ -85,7 +85,10 @@ def zdi_df():
             cve_link = tbody[0].find_all('tr')[5].find_all('td')[1].find_all('a', href=True)
             cve_link = cve_link[0]['href']
         except IndexError:
-            cve_link = tbody[0].find_all('tr')[0].find_all('td')[1].find_next()['href']
+            try:
+                cve_link = tbody[0].find_all('tr')[0].find_all('td')[1].find_next()['href']
+            except KeyError:
+                cve_link = 'no links found!'
         finally:
             vuln_d['link'] = cve_link
 
