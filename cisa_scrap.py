@@ -56,7 +56,15 @@ def cisa_df():
         except IndexError:
             cvss = vuln_soup.find_all('strong', attrs={'style': 'color:red;'})[0]
         finally:
-            cvss = float(cvss.text.split()[-1])
+            # The cvss scores is extracted as a string from html
+            # Try to convert it to float to check if it is within the requested parameters.
+            # in case CISA publish any cvss score separated by comma instead of period, replace ',' by '.'.
+            try:
+                cvss = float(cvss.text.split()[-1])
+            except ValueError:
+                cvss = cvss.text.split()[-1]
+                cvss = cvss.replace(',', '.')
+                cvss = float(cvss)
 
         vuln_d = {}
         if (date_delta.days <= 7) and (cvss >= 7):
