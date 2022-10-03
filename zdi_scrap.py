@@ -35,6 +35,8 @@ def zdi_df():
         try:
             release_date_parsed = dt.datetime.strptime(td_release_date, '%B %d, %Y').date()
         except ValueError:
+            td_release_date = re.sub(r'Oct.', 'October', td_release_date)
+            td_release_date = re.sub(r'Sept.', 'September', td_release_date)
             td_release_date = re.sub(r'Aug.', 'August', td_release_date)
             td_release_date = re.sub(r'Feb.', 'February', td_release_date)
             td_release_date = re.sub(r'Jan.', 'January', td_release_date)
