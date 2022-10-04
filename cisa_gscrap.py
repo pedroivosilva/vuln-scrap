@@ -60,22 +60,27 @@ def cisa_df():
         # Check if date is <= 7 days
         date_delta = now - release_date_parsed
 
-        # If delta is within the period, check the CVSS score.
-        # CVSS is the first bold red colored word in the page. That's why it's in index 0 below
-        try:
-            cvss = vuln_soup.find_all('strong', attrs={'style': 'color: red;'})[0]
-        except IndexError:
-            cvss = vuln_soup.find_all('strong', attrs={'style': 'color:red;'})[0]
-        finally:
-            # The cvss scores is extracted as a string from html
-            # Try to convert it to float to check if it is within the requested parameters.
-            # in case CISA publish any cvss score separated by comma instead of period, replace ',' by '.'.
-            try:
-                cvss = float(cvss.text.split()[-1])
-            except ValueError:
-                cvss = cvss.text.split()[-1]
-                cvss = cvss.replace(',', '.')
-                cvss = float(cvss)
+        # Check the CVSS score.
+        # Get every bold red colored lines in the page as a list (strong_red_lines) and check if it starts with CVSS.
+        strong_red_lines = vuln_soup.find_all('strong', attrs={'style': 'color: red;'})
+        if len(strong_red_lines) == 0:
+            strong_red_lines = vuln_soup.find_all('strong', attrs={'style': 'color:red;'})
+
+        for strong in strong_red_lines:
+            if strong.text.startswith('CVSS') or strong.text.startswith('cvss'):
+
+                # Try to parse found CVSS line into float
+                try:
+                    cvss = strong
+                    cvss = float(cvss.text.split()[-1])
+
+                # If cannot convert to float, try to replace comma by period before.
+                except ValueError:
+                    cvss = cvss.text.split()[-1]
+                    cvss = cvss.replace(',', '.')
+                    cvss = float(cvss)
+            else:
+                continue
 
         print(f'Release date: {release_date}')
         print(f'CVSS v3: {cvss}')
@@ -97,7 +102,7 @@ def cisa_df():
             a_vuln_soup = vuln_soup.find_all('a', href=True)
 
             # Get text index (e.g. On the heading "3.2. VULNERABILITY OVERVIEW", 3.2 will be our index)
-            # Initiate variable as an 'ERROR' in case it doesn't change we'll notice.
+            # Initiate variable as an 'ERROR'. In case it doesn't change we'll notice.
             vulnerability_heading = 'ERROR'
 
             # Start to scrap.
